@@ -68,6 +68,27 @@ namespace TinkoffInvestReportProcessor
 
                         IRange table = ws[row, 2, row + rowsImported, 2 - 1 + dt.Columns.Count];
 
+                        // fixup time formatted as date
+                        if (table.Row != table.LastRow)
+                        {
+                            foreach (DataColumn col in dt.Columns)
+                            {
+                                if (col.ColumnName.Contains("время", StringComparison.CurrentCultureIgnoreCase) &&
+                                    !col.ColumnName.Contains("дата", StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    IRange timeRange = table[table.Row + 1, table.Column + col.Ordinal,
+                                                             table.LastRow, table.Column + col.Ordinal];
+
+                                    foreach (IRange cell in timeRange)
+                                    {
+                                        if (cell.Value2 is DateTime dateTime)
+                                            cell.TimeSpan = dateTime.TimeOfDay;
+                                    }
+                                    timeRange.NumberFormat = "[$-F400]h:mm:ss\\ AM/PM";
+                                }
+                            }
+                        }
+
                         if (!autowidth)
                         {
                             for (int i = table.Column, l = table.LastColumn; i <= l; i++)
