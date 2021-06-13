@@ -23,6 +23,10 @@ namespace TinkoffInvestReportProcessor
 
         static void Main(string[] args)
         {
+            CultureInfo.CurrentCulture =
+                CultureInfo.CurrentUICulture =
+                    CultureInfo.DefaultThreadCurrentCulture =
+                        CultureInfo.DefaultThreadCurrentUICulture = ruRU;
             Directory.CreateDirectory("fixed");
 
             string[] files = Directory.GetFiles(".", "broker-report-*.xlsx", SearchOption.AllDirectories).OrderBy(x => x).ToArray();
@@ -185,9 +189,6 @@ namespace TinkoffInvestReportProcessor
                     object val = ws[row, col].Value2;
                     if (val != null && !"".Equals(val))
                     {
-                        if (val is string s && double.TryParse(s, NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands | NumberStyles.AllowLeadingSign, ruRU, out double v))
-                            val = v;
-
                         dict.Add(colName, val);
                     }
                 }
