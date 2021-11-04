@@ -27,6 +27,9 @@ namespace TinkoffInvestReportProcessor
                 CultureInfo.CurrentUICulture =
                     CultureInfo.DefaultThreadCurrentCulture =
                         CultureInfo.DefaultThreadCurrentUICulture = ruRU;
+
+            //Environment.CurrentDirectory = "D:\\Dropbox\\Alexander Zhuravlev Tax Reports\\";
+
             Directory.CreateDirectory("fixed");
 
             string[] files = Directory.GetFiles(".", "broker-report-*.xlsx", SearchOption.AllDirectories).OrderBy(x => x).ToArray();
