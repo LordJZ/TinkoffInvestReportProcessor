@@ -155,12 +155,18 @@ namespace TinkoffInvestReportProcessor
             int lastRow = ws.UsedRange.LastRow;
             int lastColumn = ws.UsedRange.LastColumn;
 
-            bool IsHeaderCell(int r) => (ws[r, 1].MergeArea?.Count ?? 1) < 60 && ws[r, 1].Value?.Length > 0;
+            bool IsHeaderCell(int r, int col) => (ws[r, col].MergeArea?.Count ?? 1) < 60 && ws[r, col].Value?.Length > 0;
+
+            int col = (from r in Enumerable.Range(1, 10)
+                       from c in Enumerable.Range(1, 10)
+                       select ws[r, c]).First(cell => cell.Text?.Length > 0).Column;
+
+            bool IsHeader(int r) => IsHeaderCell(r, col) || col > 1 && IsHeaderCell(r, col - 1);
 
             bool IsPageBreak(int r)
             {
                 string s = "";
-                for (int c = 1; c <= lastColumn && s.Length < 15; ++c)
+                for (int c = col; c <= lastColumn && s.Length < 15; ++c)
                 {
                     s += ws[r, c].Value;
                 }
@@ -168,12 +174,12 @@ namespace TinkoffInvestReportProcessor
                 return s.Length < 15 && pageBreak.IsMatch(s);
             }
 
-            bool IsTableName() => ws[row, 1].MergeArea?.Count > 100 &&
-                                  (IsHeaderCell(row + 1) || IsPageBreak(row + 1) && IsHeaderCell(row + 2));
+            bool IsTableName() => ws[row, col].MergeArea?.Count > 100 &&
+                                  (IsHeader(row + 1) || IsPageBreak(row + 1) && IsHeader(row + 2));
 
             while (!IsTableName())
             {
-                texts.Add(ws[row, 1].Value);
+                texts.Add(ws[row, col].Value);
 
                 if (row > lastRow)
                     return (default, default, texts.ToArray());
@@ -181,20 +187,20 @@ namespace TinkoffInvestReportProcessor
                 ++row;
             }
 
-            DataTable dt = new DataTable(ws[row, 1].Value);
+            DataTable dt = new DataTable(ws[row, col].Value);
             ++row;
 
             if (IsPageBreak(row))
                 ++row;
 
             (int, string)[] headers =
-                Enumerable.Range(1, lastColumn).Select(x => (x, ws[row, x]))
+                Enumerable.Range(col, lastColumn).Select(x => (x, ws[row, x]))
                           .Where(t => t.Item2.Value != "")
                           .Select(t => (t.x, t.Item2.Value.Replace("\n", "")))
                           .ToArray();
 
-            foreach ((_, string col) in headers)
-                dt.Columns.Add(col);
+            foreach ((_, string val) in headers)
+                dt.Columns.Add(val);
 
             Dictionary<string, object> dict = new Dictionary<string, object>();
             while (++row < lastRow && !IsTableName())
@@ -205,9 +211,9 @@ namespace TinkoffInvestReportProcessor
                 if (isSecondaryHeader)
                     continue;
 
-                foreach ((int col, string colName) in headers)
+                foreach ((int colOrdinal, string colName) in headers)
                 {
-                    object val = ws[row, col].Value2;
+                    object val = ws[row, colOrdinal].Value2;
                     if (val != null && !"".Equals(val))
                     {
                         dict.Add(colName, val);
@@ -218,8 +224,8 @@ namespace TinkoffInvestReportProcessor
                 {
                     DataRow dr = dt.NewRow();
 
-                    foreach ((string col, object val) in dict)
-                        dr[col] = val;
+                    foreach ((string colOrdinal, object val) in dict)
+                        dr[colOrdinal] = val;
 
                     dt.Rows.Add(dr);
                 }
