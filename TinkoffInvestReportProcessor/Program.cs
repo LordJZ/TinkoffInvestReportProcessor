@@ -65,6 +65,7 @@ namespace TinkoffInvestReportProcessor
                     if (dt != null)
                     {
                         ++row;
+                        ws[row, 1].CellStyle.Font.Bold = true;
                         ws[row++, 1].Value = dt.TableName;
 
                         int rowsImported = ws.ImportDataTable(dt, true, row, 2);
