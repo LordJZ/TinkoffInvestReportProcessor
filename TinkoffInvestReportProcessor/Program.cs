@@ -165,7 +165,7 @@ namespace TinkoffInvestReportProcessor
                        from c in Enumerable.Range(1, 10)
                        select ws[r, c]).First(cell => cell.Text?.Length > 0).Column;
 
-            bool IsHeader(int r) => IsHeaderCell(r, col) || col > 1 && IsHeaderCell(r, col - 1);
+            bool IsHeader(int r) => IsHeaderCell(r, col + 1) || IsHeaderCell(r, col) || col > 1 && IsHeaderCell(r, col - 1);
 
             bool IsPageBreak(int r)
             {
@@ -178,10 +178,19 @@ namespace TinkoffInvestReportProcessor
                 return s.Length < 15 && pageBreak.IsMatch(s);
             }
 
-            bool IsTableName() => ws[row, col].MergeArea?.Count > 100 &&
-                                  (IsHeader(row + 1) || IsPageBreak(row + 1) && IsHeader(row + 2));
+            bool IsTableName(out IRange tableNameCell)
+            {
+                if (!((tableNameCell = ws[row, col + 0]).MergeArea?.Count > 100) &&
+                    !((tableNameCell = ws[row, col + 1]).MergeArea?.Count > 100))
+                {
+                    return false;
+                }
 
-            while (!IsTableName())
+                return IsHeader(row + 1) || IsPageBreak(row + 1) && IsHeader(row + 2);
+            }
+
+            IRange tableNameCell;
+            while (!IsTableName(out tableNameCell))
             {
                 texts.Add(ws[row, col].Value);
 
@@ -191,30 +200,44 @@ namespace TinkoffInvestReportProcessor
                 ++row;
             }
 
-            DataTable dt = new DataTable(ws[row, col].Value);
+            DataTable dt = new DataTable(tableNameCell.Value);
             ++row;
 
             if (IsPageBreak(row))
                 ++row;
 
-            (int, string)[] headers =
+            (int, string)[] ReadHeader() =>
                 Enumerable.Range(col, lastColumn).Select(x => (x, ws[row, x]))
                           .Where(t => t.Item2.Value != "")
                           .Select(t => (t.x, t.Item2.Value.Replace("\n", "")))
                           .ToArray();
 
+            (int, string)[] headers = ReadHeader();
+
             foreach ((_, string val) in headers)
                 dt.Columns.Add(val);
 
             Dictionary<string, object> dict = new Dictionary<string, object>();
-            while (++row < lastRow && !IsTableName())
+            while (true)
             {
-                dict.Clear();
+                if (++row >= lastRow)
+                    break;
 
-                bool isSecondaryHeader = headers.All(h => ws[row, h.Item1].Value.Replace("\n", "") == h.Item2);
-                if (isSecondaryHeader)
+                if (IsTableName(out _))
+                    break;
+
+                (int, string)[] headerCandidate = ReadHeader();
+
+                bool isHeader =
+                    headerCandidate.Length == headers.Length &&
+                    headerCandidate.Zip(headers).All(t => t.First.Item2 == t.Second.Item2);
+                if (isHeader)
+                {
+                    headers = headerCandidate;
                     continue;
+                }
 
+                dict.Clear();
                 foreach ((int colOrdinal, string colName) in headers)
                 {
                     object val = ws[row, colOrdinal].Value2;
